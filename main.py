@@ -16,7 +16,6 @@ headers = {'Authorization': 'eyJhbGciOiJFUzI1NiIsImtpZCI6IjIwMjUwMjE3djEiLCJ0eXA
 async def main():
     await db.create_tables()
     dp.include_router(setup_routers())
-    await send_orders()
     await dp.start_polling(bot)
 
 if __name__ == '__main__':

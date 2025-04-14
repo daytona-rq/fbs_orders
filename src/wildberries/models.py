@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from src.database.queries.orm import db
+from src.wildberries.redis import redis
 
 jsons_path = Path(__file__).parent / "jsons"
 
@@ -163,7 +164,18 @@ class Card:
         volume = length * width * height / 1000
         return max(volume, 1)
 
-    async def create_report(self) -> str:
+    async def get_daily_total(self, chat_id: int) -> float:
+        today = date.today().isoformat()
+        key = f"stats:{chat_id}:{today}"
+
+        if total:
+            total = await redis.hget(key, "total")
+            profit = float(total)
+        else:
+            profit = 0.0
+        return profit
+
+    async def create_report(self, chat_id: int) -> str:
         
         report = f"""Поступил <b>новый заказ</b> по системе Маркетплейс (FBS)
         <b>Артикул продавца:</b> {self.article}
@@ -173,6 +185,6 @@ class Card:
         <b>Логистика:</b> {self.logistic_cost}₽
         <b>Налог:</b> {self.cost_tax}₽
         <b>Ожидаемая прибыль с продажи:</b> {self.profit}₽
-        <b>Приблизительная прибыль за день:</b> {'test'}₽"""
+        <b>Приблизительная прибыль за день:</b> {await self.get_daily_total(chat_id)}₽"""
     
         return report

@@ -74,7 +74,7 @@ class Orm:
                     )
                 )
             active_users = active_users.all()
-            print(active_users)
+            print('Выбрано пользователей:', len(active_users))
             return active_users 
 
     async def check_trial(self, chat_id: int):
