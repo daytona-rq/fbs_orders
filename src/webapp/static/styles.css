@@ -1,0 +1,112 @@
+:root {
+    --bg-color: #f5f5f5;
+    --text-color: #333;
+    --container-bg: #ffffff;
+    --header-bg: #f8f8f8;
+    --header-text-color: #111;
+    --hover-bg: transparent;
+}
+
+/* Тёмная тема */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #1a1a1a;
+        --text-color: #f0f0f0;
+        --container-bg: #2a2a2a;
+        --header-bg: #333333;
+        --header-text-color: #ffffff;
+        --hover-bg: transparent;
+    }
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.container {
+    max-width: 100%;
+    background: var(--container-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+h1 {
+    font-size: 20px;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    margin-bottom: 15px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+th, td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    word-break: break-word;
+}
+
+th {
+    background-color: var(--header-bg);
+    color: var(--header-text-color);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Удалили подсветку строки при наведении */
+tr:hover {
+    background-color: var(--hover-bg);
+}
+
+input[type="number"] {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+
+    /* Удаление стрелочек */
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    appearance: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input.updated {
+    background-color: #e2f9e2;
+    transition: background-color 1s ease;
+}
+
+input.error {
+    background-color: #fde2e2;
+}
+
+.spinner {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+    font-style: italic;
+}

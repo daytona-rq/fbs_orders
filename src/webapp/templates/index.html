@@ -1,0 +1,32 @@
+<!-- app/webapp/templates/index.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление себестоимостью</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Управление себестоимостью товаров</h1>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Поиск по артикулу..." oninput="searchProducts()">
+        </div>
+        <table id="productsTable">
+            <thead>
+                <tr>
+                    <th>Артикул</th>
+                    <th>Себестоимость</th>
+                </tr>
+            </thead>
+            <tbody id="productsBody">
+                <!-- Данные будут загружены через JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
