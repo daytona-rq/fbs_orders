@@ -20,15 +20,24 @@ class Orm:
             user_in_db = result.scalar_one_or_none()
             return user_in_db
 
-    async def check_sub_status(self, chat_id: int) -> bool:
-        async with session_factory() as session:
+    async def check_sub_status(self, chat_id: int, session=None) -> bool:
+        if not session:
+            async with session_factory() as session:
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                sub_data = await session.execute(
+                    select(UsersOrm.subscription_until).where(UsersOrm.chat_id == chat_id)
+                )
+                sub_data = sub_data.scalar_one_or_none()
+                return sub_data if sub_data and sub_data > now_utc else False
+        else:
+            # Если сессия передана, используем её
             now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
             sub_data = await session.execute(
-                select(UsersOrm.subscription_until).
-                where(UsersOrm.chat_id == chat_id)
+                select(UsersOrm.subscription_until).where(UsersOrm.chat_id == chat_id)
             )
-            sub_data = sub_data.scalar_one()
-            return sub_data if sub_data > now_utc else False
+            sub_data = sub_data.scalar_one_or_none()
+            return sub_data if sub_data and sub_data > now_utc else False
+
 
     async def add_user(self, chat_id: int):
         user = UsersOrm(chat_id=chat_id)
@@ -40,7 +49,9 @@ class Orm:
         async with session_factory() as session:
             now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
             
-            if await self.check_sub_status(chat_id):
+            sub_status = await self.check_sub_status(chat_id, session)
+
+            if sub_status:
                 user_token = await session.execute(
                 select(UsersOrm.wb_token).where(
                     and_(
@@ -53,7 +64,7 @@ class Orm:
                 user_token = user_token.scalar_one_or_none()
                 return user_token
             
-            bot.send_message(chat_id, )
+            bot.send_message(chat_id, 'Подписка неактивна')
 
     async def active_users_list(self) -> List[Tuple[str, str]]:
         """
@@ -74,7 +85,7 @@ class Orm:
                     )
                 )
             active_users = active_users.all()
-            print('Выбрано пользователей:', len(active_users))
+            print('Выбрано пользователей:',len(active_users))
             return active_users 
 
     async def check_trial(self, chat_id: int):

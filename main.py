@@ -7,7 +7,7 @@ from src.telegram.bot import bot
 from src.telegram.handlers import setup_routers
 from src.database.queries.orm import db
 from src.wildberries.models import wb_client
-from src.wildberries.wb_main import send_orders
+from src.celery.tasks import send_orders
 
 dp = Dispatcher()
 

@@ -2,22 +2,26 @@ from celery import Celery, Task
 from celery.schedules import crontab
 import logging
 import asyncio
-from src.wildberries.wb_main import send_orders
 
-# Настройка Celery
+from src.telegram.bot import bot
+from src.celery.tasks import send_orders, send_daily_user_stats
+
 app = Celery('my_app', broker='redis://localhost:6379/0')
 
-# Логирование
+app.conf.update(
+    worker_pool = 'solo'
+)
+
+
 logging.basicConfig(level=logging.INFO)
 
-# Базовый класс для задач с автоповторами
 class BaseTaskWithRetry(Task):
-    autoretry_for = (Exception,)  # Повторить при любых исключениях
-    retry_kwargs = {'max_retries': 3, 'countdown': 60}  # Максимум 3 повтора, раз в 60 секунд
-    retry_backoff = True  # Экспоненциальный бэкофф (60, 120, 240 и т.д.)
-    retry_jitter = True  # Добавить случайную задержку, чтобы снизить нагрузку
-    acks_late = True  # Подтверждаем выполнение только после успешного завершения задачи
-    default_retry_delay = 60  # Задержка по умолчанию
+    autoretry_for = (Exception,)
+    retry_kwargs = {'max_retries': 3, 'countdown': 60} 
+    retry_backoff = True
+    retry_jitter = True  
+    acks_late = True 
+    default_retry_delay = 60 
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logging.error(f"Задача {self.name} ({task_id}) упала: {exc}")
@@ -25,17 +29,29 @@ class BaseTaskWithRetry(Task):
 @app.task(name='app.tasks.send_orders_task', base=BaseTaskWithRetry, bind=True)
 def send_orders_task(self):
     try:
-        # Используем asyncio.run для асинхронной функции
-        asyncio.run(send_orders())
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(send_orders())
     except Exception as e:
         logging.exception(f"Ошибка в send_orders: {e}")
         raise self.retry(exc=e)
 
-# Периодическое задание, которое будет выполняться каждые 5 минут
+@app.task(name='app.tasks.send_daily_user_stats_task', base=BaseTaskWithRetry, bind=True)
+def send_daily_user_stats_task(self):
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(send_daily_user_stats())
+    except Exception as e:
+        logging.exception(f"Ошибка в send_daily_user_stats: {e}")
+        raise self.retry(exc=e)
+
 app.conf.beat_schedule = {
     'send-orders-every-5-minutes': {
         'task': 'app.tasks.send_orders_task',
-        'schedule': crontab(minute='*/5'),  # Каждые 5 минут
+        'schedule': crontab(minute='*/5'),
+    },
+    'send-daily-user-stats-at-00-00': {
+    'task': 'app.tasks.send_daily_user_stats_task',
+    'schedule': crontab(hour=0, minute=0),
     },
 }
 

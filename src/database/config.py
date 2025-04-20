@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     DB_NAME: str
     database_url: Optional[str]  # Может быть пустым, так как будет динамически генерироваться
     redis_url: str
+    PAY_TOKEN: str
+    YOOKASSA_SECRET_KEY: str
+    SHOP_ID: str
 
     class Config:
         env_file = ".env"

@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from src.database.queries.orm import db
-from src.wildberries.redis import redis
+from src.redis import redis
 
 jsons_path = Path(__file__).parent / "jsons"
 
@@ -35,9 +35,9 @@ class WB_APIclient:
                 self,
                 session: aiohttp.ClientSession, 
                 link: str, 
-                file_name: str = '', 
-                params: dict ={},
-                save_file: bool =False
+                file_name: str = '',
+                params: dict = {},
+                save_file: bool = False
                 ) -> dict:
         async with await session.get(link, params=params) as response:
             await self.check_response_status(response.status)
@@ -164,16 +164,12 @@ class Card:
         volume = length * width * height / 1000
         return max(volume, 1)
 
-    async def get_daily_total(self, chat_id: int) -> float:
+    async def get_daily_profit(self, chat_id: int) -> float:
         today = date.today().isoformat()
-        key = f"stats:{chat_id}:{today}"
+        stats_key = f"user_stats:{chat_id}:{today}"
 
-        if total:
-            total = await redis.hget(key, "total")
-            profit = float(total)
-        else:
-            profit = 0.0
-        return profit
+        day_profit = await redis.hget(stats_key, "daily_profit")
+        return round(float(day_profit), 2) if day_profit else 0.0
 
     async def create_report(self, chat_id: int) -> str:
         
@@ -185,6 +181,6 @@ class Card:
         <b>Логистика:</b> {self.logistic_cost}₽
         <b>Налог:</b> {self.cost_tax}₽
         <b>Ожидаемая прибыль с продажи:</b> {self.profit}₽
-        <b>Приблизительная прибыль за день:</b> {await self.get_daily_total(chat_id)}₽"""
+        <b>Приблизительная прибыль за день:</b> {await self.get_daily_profit(chat_id)}₽"""
     
         return report

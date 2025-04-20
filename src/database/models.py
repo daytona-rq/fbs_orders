@@ -1,4 +1,5 @@
-from sqlalchemy import DateTime, BigInteger
+from decimal import Decimal
+from sqlalchemy import DateTime, BigInteger, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, timezone
 
@@ -21,4 +22,4 @@ class UsersArticles(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_id: Mapped[int] = mapped_column(BigInteger)
     article_code: Mapped[str] = mapped_column(unique=True)
-    cost: Mapped[int] = mapped_column(default=0)
+    cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0.00)

@@ -1,4 +1,3 @@
-// app/webapp/static/app.js
 document.addEventListener('DOMContentLoaded', function() {
     const tg = window.Telegram?.WebApp;
     if (!tg) {
@@ -12,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatId = tg.initDataUnsafe?.user?.id || tg.initDataUnsafe?.chat?.id;
     if (!chatId) {
         tg.showAlert('Ошибка: не удалось получить chat_id. Пожалуйста, откройте через бота.');
-        console.error('chat_id не найден в:', tg.initDataUnsafe);
         return;
     }
 
@@ -48,14 +46,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (search) url.searchParams.set('search', search);
 
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
             
             productsData = await response.json();
             if (productsData.length === 0) renderEmptyMessage();
             else renderProducts(productsData);
         } catch (error) {
-            console.error('Ошибка при загрузке данных:', error);
-            tg.showAlert(`Ошибка загрузки: ${error.message}`);
+            console.error('Ошибка:', error);
+            tg.showAlert(error.message);
         }
     }
 
@@ -74,13 +72,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         tbody.innerHTML = products.map(product => `
             <tr>
-                <td>${product.article_code || product.article || 'N/A'}</td>
+                <td>${product.article_code || 'N/A'}</td>
                 <td>
                     <input type="number" 
                            step="0.01" 
-                           value="${product.cost ?? ''}" 
+                           value="${(product.cost ?? 0).toFixed(2)}" 
                            data-id="${product.id}"
-                           onchange="handleCostChange(event)">
+                           onchange="handleCostChange(event)"
+                           onblur="handleInputBlur(event)">
                 </td>
             </tr>
         `).join('');
@@ -91,69 +90,59 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => input.classList.remove(className), 1500);
     }
 
+    window.handleInputBlur = function(event) {
+        const input = event.target;
+        let value = parseFloat(input.value.replace(',', '.'));
+        
+        if (isNaN(value)) {
+            value = 0;
+        } else if (value < 0) {
+            value = 0;
+        }
+        
+        input.value = value.toFixed(2);
+    };
+
     window.handleCostChange = async function(event) {
         const input = event.target;
         const articleId = input.dataset.id;
-        const newCost = input.value ? parseFloat(input.value) : null;
+        let value = parseFloat(input.value.replace(',', '.'));
         
+        if (isNaN(value)) {
+            value = 0;
+        } else if (value < 0) {
+            value = 0;
+        }
+        
+        const formattedValue = parseFloat(value.toFixed(2));
+        input.value = formattedValue.toFixed(2);
+
         try {
             const response = await fetch(`/api/articles/${articleId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify({ cost: newCost })
+                body: JSON.stringify({cost: formattedValue})
             });
             
             if (!response.ok) {
-                throw new Error(await response.text());
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Ошибка сервера");
             }
             
             const updatedProduct = await response.json();
-            input.value = updatedProduct.cost ?? '';
-            
-            const productIndex = productsData.findIndex(p => p.id == articleId);
-            if (productIndex !== -1) {
-                productsData[productIndex].cost = updatedProduct.cost;
-            }
-
+            input.value = updatedProduct.cost.toFixed(2);
             flashInput(input, 'updated');
-
         } catch (error) {
-            console.error('Ошибка при обновлении:', error);
+            console.error('Ошибка обновления:', error);
             const product = productsData.find(p => p.id == articleId);
-            input.value = product?.cost ?? '';
+            input.value = (product?.cost ?? 0).toFixed(2);
             flashInput(input, 'error');
-            tg.showAlert('Ошибка сохранения: ' + error.message);
+            tg.showAlert(`Ошибка: ${error.message}`);
         }
     };
 
     window.searchProducts = searchProducts;
-
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', searchProducts);
-    }
-
-    // Сортировка по клику на заголовки
-    let sortAsc = true;
-    document.querySelectorAll('th').forEach((th, index) => {
-        th.addEventListener('click', () => {
-            if (index === 0) {
-                productsData.sort((a, b) => {
-                    const valA = a.article_code || a.article || '';
-                    const valB = b.article_code || b.article || '';
-                    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                });
-            } else if (index === 1) {
-                productsData.sort((a, b) => {
-                    const valA = a.cost ?? 0;
-                    const valB = b.cost ?? 0;
-                    return sortAsc ? valA - valB : valB - valA;
-                });
-            }
-            sortAsc = !sortAsc;
-            renderProducts(productsData);
-        });
-    });
 });
