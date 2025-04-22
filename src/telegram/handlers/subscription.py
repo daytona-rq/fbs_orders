@@ -25,10 +25,11 @@ async def sub_status(callback: CallbackQuery):
     chat_id = callback.message.chat.id
     sub_date = await db.check_sub_status(chat_id)
     if sub_date:
-        await bot.send_message(chat_id,
-                               text=f'Подписка активна до {sub_date}')
+        await callback.message.edit_text(
+                               text=f'Подписка активна до {sub_date}',
+                               reply_markup=kb.to_menu)
     else:
-        await bot.send_message(chat_id,
+        await callback.message.edit_text(
                                Texts.not_sub_txt,
                                reply_markup=kb.sub_menu)
 
@@ -37,15 +38,5 @@ async def buy_sub(callback: CallbackQuery):
     await callback.answer('')
     chat_id = callback.message.chat.id
     payment_url, payment_id = create_payment(chat_id)
-    await callback.message.answer(f'{payment_url} {payment_id}')
-    #await callback.message.answer('')
-    #await callback.message.answer("Тестовая оплата. Используй:\n4242 4242 4242 4242", ParseMode='Markdown')
-    #await callback.message.answer_invoice(
-    #    title='Подписка',
-    #    description='Получение уведомлений о заказах FBS с юнит экономикой',
-    #    provider_token=PAYMENT_PROVIDER_TOKEN,
-    #    currency='RUB',
-    #    is_flexible=False,
-    #    prices=PRICES,
-    #    payload='payload'
-    #)
+    await callback.message.answer(f'ID вашей операции: \n{payment_id}', 
+                                  reply_markup=kb.create_payment_kb(payment_url))

@@ -1,86 +1,89 @@
-version: '3.9'
-
 services:
-  web:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    command: uvicorn src.webapp.server:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./src:/app/src
+  postgres:
+    image: postgres:15.0
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
     ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      BOT_TOKEN: ${BOT_TOKEN}
-    restart: unless-stopped
-
-  celery:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A src.celery.scheduler worker --loglevel=info
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"] 
+      interval: 10s 
+      timeout: 5s
+      retries: 5
     volumes:
-      - ./src:/app/src
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      BOT_TOKEN: ${BOT_TOKEN}
-    restart: unless-stopped
-
-  celery-beat:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A src.celery.scheduler beat --loglevel=info
-    volumes:
-      - ./src:/app/src
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      BOT_TOKEN: ${BOT_TOKEN}
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
+    restart: on-failure
 
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    restart: unless-stopped
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
-    restart: unless-stopped
+    restart: always
+
+  webapp:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - YOOKASSA_PAY_TOKEN=${PAY_TOKEN}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY}
+      - SHOP_ID=${SHOP_ID}
+
+    command: python -m uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./src/webapp:/app/src
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    
+
+  celery-worker:
+    build: .
+    command: celery -A scheduler worker --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./src/celery:/app/src
+    depends_on:
+      - redis
+      - webapp
+
+  celery-beat:
+    build: .
+    command: celery -A scheduler beat --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./src/celery:/app/src
+    depends_on:
+      - redis
+      - webapp
+
+  telegram-bot:
+    build: .
+    command: python -m main
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+    depends_on:
+      - postgres
+      - redis
+      - webapp
 
 volumes:
   postgres_data:

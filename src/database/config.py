@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL_asyncpg(self):
         """Строка подключения для asyncpg"""
-        return f'postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}'
+        return f'postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@postgres:5432/{self.DB_NAME}'
 
 # Инициализация настроек
 settings = Settings()

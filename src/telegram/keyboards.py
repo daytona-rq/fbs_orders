@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.types.web_app_info import WebAppInfo
 
 
@@ -7,6 +7,14 @@ app_link = 'https://ir-wb-auto.ru/'
 back_button = [InlineKeyboardButton(text='<< Меню', callback_data='back')]
 
 to_menu = InlineKeyboardMarkup(inline_keyboard=[back_button])
+
+def create_payment_kb(payment_url: str):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='Оплатить', url=payment_url)], 
+            back_button
+        ]
+    )
 
 start_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='Пробный период', callback_data='trial'),
@@ -25,7 +33,7 @@ help_kb = InlineKeyboardMarkup(inline_keyboard=[
     back_button])
 
 sub_menu = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Подписка', callback_data='buy_sub')],
+    [InlineKeyboardButton(text='Оформить подписку', callback_data='buy_sub')],
     back_button
 ])
 

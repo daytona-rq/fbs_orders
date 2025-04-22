@@ -96,7 +96,7 @@ async def user_report(user: tuple[int, str]):
 #Задачи
 
 async def send_daily_user_stats():
-    active_users = await db.active_users_list()
+    active_users = await db.sub_users_list()
     for user in active_users:
         chat_id = user[0]
         report = await daily_report(chat_id)
@@ -105,7 +105,7 @@ async def send_daily_user_stats():
 
 async def send_orders():
     try:
-        active_users = await db.active_users_list()
+        active_users = await db.sub_users_list()
         tasks = [asyncio.create_task(user_report(user)) for user in active_users]
         await asyncio.gather(*tasks)
     except Exception as e:
