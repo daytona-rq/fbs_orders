@@ -32,19 +32,20 @@ class Orm:
         Returns:
             True если подписка активна, False если нет
         """
-        async def _check(session):
+        async def _check(chat_id: int, session):
             now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
             result = await session.execute(
-                select(UsersOrm.subscription_until).where(UsersOrm.chat_id == chat_id)
+                select(UsersOrm.subscription_until).
+                where(UsersOrm.chat_id == chat_id)
             )
             sub_data = result.scalar_one_or_none()
-            return sub_data and sub_data > now_utc
-
-        if session is not None:
-            return await _check(session)
-
-        async with session_factory() as session:
-            return await _check(session)
+            return sub_data and (sub_data > now_utc)
+    
+        if session:
+            await _check(chat_id, session)
+        else:
+            with session_factory() as session:
+                await _check(chat_id, session)
 
     @connection
     async def subscribe(self, chat_id: int, session):
@@ -63,26 +64,25 @@ class Orm:
         session.add(user)
         await session.commit()
 
-    async def get_user_wb_token(self, chat_id: int) -> str:
-        async with session_factory() as session:
-            now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-            
-            sub_status = await self.check_sub_status(chat_id, session)
-
-            if sub_status:
-                user_token = await session.execute(
-                select(UsersOrm.wb_token).where(
-                    and_(
-                        UsersOrm.send_notifications == True,
-                        UsersOrm.subscription_until > now_utc,
-                        UsersOrm.chat_id == chat_id
-                        )
+    @connection
+    async def get_user_wb_token(self, chat_id: int, session) -> str:
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        sub_status = await self.check_sub_status(chat_id, session)
+        if sub_status:
+            user_token = await session.execute(
+            select(UsersOrm.wb_token).where(
+                and_(
+                    UsersOrm.send_notifications == True,
+                    UsersOrm.subscription_until > now_utc,
+                    UsersOrm.chat_id == chat_id
                     )
                 )
-                user_token = user_token.scalar_one_or_none()
-                return user_token
-            
-            bot.send_message(chat_id, 'Подписка неактивна')
+            )
+            user_token = user_token.scalar_one_or_none()
+            return user_token
+        
+        bot.send_message(chat_id, 'Подписка неактивна')
 
     @connection
     async def sub_users_list(self, session) -> List[Tuple[str, str]]:
@@ -161,7 +161,7 @@ class Orm:
             await session.commit()
     
     @connection
-    async def selfcost_by_article(self, article: str, chat_id: int, session) -> int:
+    async def selfcost_by_article(self, article: str, chat_id: int, session) -> float:
         result = await session.execute(
             select(UsersArticles.cost).
             where(
@@ -170,6 +170,6 @@ class Orm:
             )
         )
         result = result.scalar_one_or_none()
-        return 0 if result is None else result
+        return 0.0 if result is None else float(result)
 
 db = Orm()

@@ -6,10 +6,10 @@ import asyncio
 from src.telegram.bot import bot
 from src.celery.tasks import send_orders, send_daily_user_stats
 
-app = Celery('my_app', broker='redis://localhost:6379/0')
+app = Celery('my_app', broker='redis://redis:6379/0')
 
 app.conf.update(
-    worker_pool = 'solo'
+    worker_pool = 'gevent'
 )
 
 
@@ -28,26 +28,29 @@ class BaseTaskWithRetry(Task):
 
 @app.task(name='app.tasks.send_orders_task', base=BaseTaskWithRetry, bind=True)
 def send_orders_task(self):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.get_event_loop()
         loop.run_until_complete(send_orders())
     except Exception as e:
         logging.exception(f"Ошибка в send_orders: {e}")
         raise self.retry(exc=e)
+    finally:
+        loop.close()
 
 @app.task(name='app.tasks.send_daily_user_stats_task', base=BaseTaskWithRetry, bind=True)
 def send_daily_user_stats_task(self):
     try:
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(send_daily_user_stats())
+        loop.run_until_complete(send_orders())
     except Exception as e:
         logging.exception(f"Ошибка в send_daily_user_stats: {e}")
         raise self.retry(exc=e)
 
 app.conf.beat_schedule = {
-    'send-orders-every-5-minutes': {
+    'send-orders-every-1-minutes': {
         'task': 'app.tasks.send_orders_task',
-        'schedule': crontab(minute='*/5'),
+        'schedule': crontab(minute='*/1'),
     },
     'send-daily-user-stats-at-00-00': {
     'task': 'app.tasks.send_daily_user_stats_task',

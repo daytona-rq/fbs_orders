@@ -18,8 +18,10 @@ async def toggle_notifications(callback: CallbackQuery):
     status = await db.get_notifications_status(chat_id)
     await callback.answer('')
     if status:
+        await db.toggle_notifications(chat_id)
         await callback.message.answer('Уведомления выключены')
     else:
+        await db.toggle_notifications(chat_id)
         await callback.message.answer('Уведомления включены')
 
 @router.callback_query(F.data == 'wb_token')

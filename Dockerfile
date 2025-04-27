@@ -1,18 +1,25 @@
-# Базовый образ Python
 FROM python:3.10-slim
 
-# Установка зависимостей
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
+    libc6-dev \
+    adduser \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Рабочая директория
+RUN addgroup --system celeryuser && \
+    adduser --system --ingroup celeryuser celeryuser && \
+    mkdir -p /var/lib/celery && \
+    chown -R celeryuser:celeryuser /var/lib/celery
+
 WORKDIR /app
 
-# Копируем зависимости
+RUN chown -R celeryuser:celeryuser /app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем весь проект
 COPY . .
+
+USER celeryuser:celeryuser

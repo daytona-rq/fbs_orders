@@ -1,23 +1,41 @@
 services:
   postgres:
-    image: postgres:15.0
+    image: postgres:17.4
+    container_name: psgr
+    env_file:
+      - .env
     environment:
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_DB=${DB_NAME}
     ports:
       - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"] 
-      interval: 10s 
-      timeout: 5s
-      retries: 5
+    # healthcheck:
+    #   test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"] 
+    #   interval: 10s 
+    #   timeout: 5s
+    #   retries: 5
+    restart: on-failure
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: on-failure
+    networks:
+      - dbnet
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    ports:
+      - "127.0.0.1:8080:8080"
+    links:
+      - "postgres:db"
+    networks:
+      - dbnet
+    depends_on:
+      - postgres
 
   redis:
     image: redis:alpine
+    container_name: redis
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -29,62 +47,93 @@ services:
       timeout: 3s
       retries: 5
     restart: always
+    networks:
+      - dbnet
 
-  webapp:
+  telegram_bot:
     build: .
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    container_name: tg_bot
+    env_file:
+      - .env
     environment:
-      - YOOKASSA_PAY_TOKEN=${PAY_TOKEN}
-      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY}
-      - SHOP_ID=${SHOP_ID}
-
-    command: python -m uvicorn server:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./src/webapp:/app/src
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    
-
-  celery-worker:
-    build: .
-    command: celery -A scheduler worker --loglevel=info
-    env_file:
-      - .env
-    volumes:
-      - ./src/celery:/app/src
-    depends_on:
-      - redis
-      - webapp
-
-  celery-beat:
-    build: .
-    command: celery -A scheduler beat --loglevel=info
-    env_file:
-      - .env
-    volumes:
-      - ./src/celery:/app/src
-    depends_on:
-      - redis
-      - webapp
-
-  telegram-bot:
-    build: .
-    command: python -m main
-    env_file:
-      - .env
+      - BOT_TOKEN=${BOT_TOKEN}
     volumes:
       - ./:/app
     depends_on:
       - postgres
       - redis
-      - webapp
+    links:
+      - "postgres:db"
+    networks:
+      - dbnet
+    command: ["python", "-m", "main"]
+
+  fastapi:
+    build: .
+    container_name: fastapi_cont
+    ports:
+      - "8000:8000"
+    links:
+      - "postgres:db"
+    networks:
+      - dbnet
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - postgres
+      - redis
+      - telegram_bot
+    env_file:
+      - .env
+    command: ["uvicorn", "src.webapp.server:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  celery-worker:
+    build: .
+    command: ["celery",
+              "-A", 
+              "src.celery.scheduler", 
+              "worker", 
+              "--loglevel=info",
+              "--pool=gevent",
+              "--concurrency=2"]
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - celery_beat_volume:/var/lib/celery:rw
+    links:
+      - "postgres:db"
+    networks:
+      - dbnet
+    depends_on:
+      - fastapi
+
+
+  celery-beat:
+    build: .
+    command: ["celery", 
+              "-A", 
+              "src.celery.scheduler",
+              "beat",
+              "--loglevel=info",
+              "--schedule=/var/lib/celery/celerybeat-schedule.db"]
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - celery_beat_volume:/var/lib/celery:rw
+    links:
+      - "postgres:db"
+    networks:
+      - dbnet
+    depends_on:
+      - fastapi
+
+networks:
+  dbnet:
+    driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
+  celery_beat_volume:

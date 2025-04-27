@@ -18,7 +18,7 @@ from src.database.database import engine, async_session_maker
 from src.wildberries.upd_articles import update_user_article
 from src.yookassa_dir.yookassa_ import router as yookassa_router
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"

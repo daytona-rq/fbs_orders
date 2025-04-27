@@ -66,7 +66,7 @@ class WB_APIclient:
                             save_file=True
                             )
 
-    async def item_price(self, session: aiohttp.ClientSession, order:dict) -> int:
+    async def item_price(self, session: aiohttp.ClientSession, order: dict) -> float:
         params: dict = {
             'limit': 10,
             'filterNmID': order['nmId']
@@ -74,7 +74,7 @@ class WB_APIclient:
         response = await self._request(session, self.price, 'price', params)
         item_price = response['data']['listGoods'][0]['sizes'][0]['discountedPrice']
         await asyncio.sleep(0.6)
-        return item_price
+        return float(item_price)
     
     async def get_new_orders(self, session: aiohttp.ClientSession) -> list:
         orders: dict = await self._request(session, self.new_orders)
@@ -92,12 +92,12 @@ class Card:
         self.volume = 0
         self.article = ""
         self.subject_id = 0
-        self.price_before_spp = 0
-        self.wb_commission = 0
-        self.cost_tax = 0
-        self.logistic_cost = 0
-        self.profit = 0
-        self.selfcost = 0
+        self.price_before_spp: float = 0.0
+        self.wb_commission: float = 0.0
+        self.cost_tax: float = 0.0
+        self.logistic_cost: float = 0.0
+        self.profit: float = 0.0
+        self.selfcost: float = 0.0
 
     @classmethod
     async def create(cls, session: aiohttp.ClientSession, order:dict, chat_id: int):

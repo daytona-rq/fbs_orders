@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import json
+from numbers import Integral, Real
 from datetime import date, timedelta
 from aiogram.enums import ParseMode
 
@@ -45,8 +46,8 @@ async def daily_report(chat_id: int) -> str:
     return "\n".join(report_lines)
 
 async def collect_stats(chat_id: int, card: Card) -> None:
-    date = (await yesterday()).isoformat()
-    stats_key = f"user_stats:{chat_id}:{date}"
+    today = date.today().isoformat()
+    stats_key = f"user_stats:{chat_id}:{today}"
 
     updates = {
         'daily_count': 1,
@@ -59,11 +60,14 @@ async def collect_stats(chat_id: int, card: Card) -> None:
     }
 
     pipe = redis.pipeline()
+    
     for key, value in updates.items():
-        if isinstance(value, int):
+        if isinstance(value, Integral):
             pipe.hincrby(stats_key, key, value)
+        elif isinstance(value, Real):
+            pipe.hincrbyfloat(stats_key, key, float(value))
         else:
-            pipe.hincrbyfloat(stats_key, key, value)
+            raise TypeError(f"Unsupported value type for {key}: {type(value)}")
     await pipe.execute()
 
 async def reset_daily_stats(chat_id: int) -> None:
@@ -87,11 +91,13 @@ async def user_report(user: tuple[int, str]):
                     order_str = json.dumps(order, sort_keys=True)
                     if not await redis.sismember(key_redis, order_str):
                         card = await Card.create(session, order, chat_id)
+                        await redis.sadd(key_redis, order_str)
+                        await collect_stats(chat_id, card)
+
                         report_text = await card.create_report(chat_id)
                         await bot.send_message(chat_id, report_text, parse_mode=ParseMode.HTML)
 
-                        await redis.sadd(key_redis, order_str)
-                        await collect_stats(chat_id, card)
+                        
 
 #Задачи
 
@@ -106,9 +112,8 @@ async def send_daily_user_stats():
 async def send_orders():
     try:
         active_users = await db.sub_users_list()
+        print(f"Выбрано пользователей: {len(active_users)}")
         tasks = [asyncio.create_task(user_report(user)) for user in active_users]
         await asyncio.gather(*tasks)
     except Exception as e:
         print(f"Критическая ошибка в send_orders: {e}")
-    finally:
-        await redis.close()
